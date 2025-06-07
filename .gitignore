@@ -1,0 +1,28 @@
+# Variables de entorno
+.env
+.env.*
+!.env.example
+
+# Dependencias
+vendor/
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Archivos temporales y respaldos
+*.back
+*.back*
+*.bak
+*.save
+*.tmp
+*.temp
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Configuraciones específicas del servidor
+.htaccess.local
+config.local.php

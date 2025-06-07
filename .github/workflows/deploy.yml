@@ -1,0 +1,97 @@
+<?php
+/**
+ * Webhook para deploy automático desde GitHub
+ * Colocar en: /var/www/html/deploy.php
+ */
+
+// Configuración
+$secret = 'tu-secreto-github-webhook'; // Configurar en GitHub Webhook
+$repo_path = '/var/www/html/internos';
+$branch = 'main';
+$log_file = '/var/log/deploy.log';
+
+// Función para logging
+function log_message($message) {
+    global $log_file;
+    $timestamp = date('Y-m-d H:i:s');
+    file_put_contents($log_file, "[$timestamp] $message\n", FILE_APPEND);
+}
+
+// Verificar método POST
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    die('Method not allowed');
+}
+
+// Obtener payload
+$payload = file_get_contents('php://input');
+$data = json_decode($payload, true);
+
+// Verificar firma de GitHub (opcional pero recomendado)
+if (!empty($secret)) {
+    $signature = hash_hmac('sha256', $payload, $secret);
+    $github_signature = $_SERVER['HTTP_X_HUB_SIGNATURE_256'] ?? '';
+    
+    if (!hash_equals('sha256=' . $signature, $github_signature)) {
+        log_message('ERROR: Invalid signature from GitHub');
+        http_response_code(403);
+        die('Forbidden');
+    }
+}
+
+// Verificar que es push a la rama correcta
+if ($data['ref'] !== "refs/heads/$branch") {
+    log_message("INFO: Push to {$data['ref']}, ignoring (waiting for $branch)");
+    die('Not target branch');
+}
+
+log_message("INFO: Starting deployment for commit {$data['head_commit']['id']}");
+
+// Cambiar al directorio del repositorio
+chdir($repo_path);
+
+// Crear backup
+$backup_dir = "../backup-" . date('Y-m-d-H-i-s');
+$backup_cmd = "cp -r . $backup_dir 2>&1";
+exec($backup_cmd, $backup_output, $backup_return);
+
+if ($backup_return !== 0) {
+    log_message("WARNING: Backup failed: " . implode("\n", $backup_output));
+}
+
+// Ejecutar comandos de deploy
+$commands = [
+    'git fetch origin',
+    'git reset --hard origin/' . $branch,
+    'composer install --no-dev --optimize-autoloader 2>&1',
+    'chmod -R 755 .',
+    'chown -R www-data:www-data .'
+];
+
+$success = true;
+foreach ($commands as $cmd) {
+    log_message("EXEC: $cmd");
+    exec($cmd, $output, $return_var);
+    
+    if ($return_var !== 0) {
+        log_message("ERROR: Command failed: $cmd");
+        log_message("OUTPUT: " . implode("\n", $output));
+        $success = false;
+        break;
+    }
+    
+    log_message("SUCCESS: $cmd");
+    $output = []; // Limpiar output para siguiente comando
+}
+
+// Opcional: Reiniciar servicios
+if ($success) {
+    // exec('sudo systemctl reload apache2', $output, $return_var);
+    log_message("INFO: Deployment completed successfully");
+    echo "Deployment successful";
+} else {
+    log_message("ERROR: Deployment failed");
+    http_response_code(500);
+    echo "Deployment failed";
+}
+?>

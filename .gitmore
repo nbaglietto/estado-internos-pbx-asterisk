@@ -1,0 +1,24 @@
+# Variables de entorno (credenciales reales)
+.env
+.env.save
+!.env.example
+
+# Dependencias
+vendor/
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Archivos temporales y respaldos
+*.back
+*.back*
+*.bak
+*.save
+*.tmp
+*.temp
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db

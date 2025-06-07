@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Directorio Telefónico</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 2rem;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .directorio {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+        .tarjeta {
+            background-color: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .linea-superior {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .linea-inferior {
+            font-size: 0.95rem;
+            color: #333;
+        }
+        .estado-led {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .estado-verde {
+            background-color: green;
+        }
+        .estado-rojo {
+            background-color: red;
+        }
+        .boton-descargar {
+            display: block;
+            margin: 2rem auto;
+            padding: 0.8rem 1.5rem;
+            background-color: #007BFF;
+            color: white;
+            font-size: 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .boton-descargar:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Directorio Telefónico</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/styles.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <style>
+        .header-logo {
+            height: 50px;
+            margin-right: 15px;
+            vertical-align: middle;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+        }
+
+        /* Estilos para el LED sin cambiar tamaño de tarjetas */
+        .estado-led {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-left: 6px;
+            border-radius: 50%;
+            vertical-align: middle;
+        }
+        .estado-verde {
+            background-color: #4CAF50;
+        }
+        .estado-rojo {
+            background-color: #F44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="header-with-search">
+            <div class="header-left">
+                <img src="img/logo_espacio_memoria_2022_2.png" alt="Logo" class="header-logo" />
+                <h1>Directorio Telefónico</h1>
+            </div>
+
+            <div class="header-right">
+                <div class="search-container">
+                    <input
+                        type="text"
+                        id="searchInput"
+                        class="form-control"
+                        placeholder="Buscar extensión o área..."
+                    />
+                </div>
+                <button id="downloadPdfBtn" class="btn btn-info">
+                    <i class="fas fa-file-pdf"></i> Descargar PDF
+                </button>
+            </div>
+        </div>
+
+        <div class="areas-container" id="areas-container"></div>
+
+        <button id="saveLayoutBtn" class="btn btn-primary save-layout-btn">
+            <i class="fas fa-save"></i> Guardar Orden
+        </button>
+    </div>
+
+    <!-- Scripts al final del body -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/estados.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const container = document.getElementById('areas-container');
+            const saveBtn = document.getElementById('saveLayoutBtn');
+            const searchInput = document.getElementById('searchInput');
+            const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+            let areasData = [];
+            let displayedAreas = [];
+            let draggedItem = null;
+
+            // Cargar datos
+            fetch('internos.php')
+                .then((response) => response.json())
+                .then((data) => {
+                    areasData = data;
+                    const savedOrder = localStorage.getItem('areasOrder');
+
+                    if (savedOrder) {
+                        const orderArray = JSON.parse(savedOrder);
+                        areasData.sort((a, b) => {
+                            return orderArray.indexOf(a.area) - orderArray.indexOf(b.area);
+                        });
+                    }
+
+                    displayedAreas = [...areasData];
+                    renderAreas();
+                    setupDragAndDrop();
+                });
+
+            // Renderizar áreas
+  function renderAreas() {
+    container.innerHTML = '';
+
+    displayedAreas.forEach((area) => {
+        const areaCard = document.createElement('div');
+        areaCard.className = 'area-card';
+        areaCard.dataset.area = area.area;
+
+        const header = document.createElement('div');
+        header.className = 'area-header';
+        header.innerHTML = `
+            ${area.area}
+            <span class="float-end"><i class="fas fa-arrows-alt"></i></span>
+        `;
+
+        const gridContainer = document.createElement('div');
+        gridContainer.className = 'extension-grid-container';
+
+        const grid = document.createElement('div');
+        grid.className = 'extension-grid';
+
+        area.internos.forEach((interno) => {
+            const extCard = document.createElement('div');
+            extCard.className = 'extension-card';
+            extCard.title = `${interno.extension} - ${interno.nombre}`;
+
+            const estadoNormalized = interno.estado ? interno.estado.trim() : '';
+            const tieneLedVerde = estadoNormalized.includes('🟢');
+            const ledClass = tieneLedVerde ? 'estado-verde' : 'estado-rojo';
+
+            extCard.innerHTML = `
+                <div class="extension-number-container">
+                    <span class="extension-number">${interno.extension}</span>
+                    <span class="estado-led ${ledClass}"></span>
+                </div>
+                <div class="extension-name">${interno.nombre}</div>
+            `;
+
+            grid.appendChild(extCard);
+        });
+
+        gridContainer.appendChild(grid);
+        areaCard.appendChild(header);
+        areaCard.appendChild(gridContainer);
+        container.appendChild(areaCard);
+    });
+}
+
+            // Configurar drag and drop
+            function setupDragAndDrop() {
+                const isSearching = searchInput.value.trim() !== '';
+                const areaCards = document.querySelectorAll('.area-card');
+
+                areaCards.forEach((card) => {
+                    card.draggable = !isSearching;
+                    if (isSearching) {
+                        card.classList.add('no-drag');
+                    } else {
+                        card.classList.remove('no-drag');
+                    }
+
+                    card.addEventListener('dragstart', function (e) {
+                        if (isSearching) {
+                            e.preventDefault();
+                            return;
+                        }
+                        draggedItem = this;
+                        setTimeout(() => {
+                            this.classList.add('dragging');
+                        }, 0);
+                    });
+
+                    card.addEventListener('dragend', function () {
+                        if (isSearching) return;
+                        this.classList.remove('dragging');
+                        saveBtn.style.display = 'block';
+                    });
+                });
+
+                container.addEventListener('dragover', function (e) {
+                    if (isSearching) return;
+                    e.preventDefault();
+                    const afterElement = getDragAfterElement(container, e.clientY);
+                    if (afterElement == null) {
+                        container.appendChild(draggedItem);
+                    } else {
+                        container.insertBefore(draggedItem, afterElement);
+                    }
+                });
+            }
+
+            // Helper para determinar posición del drag
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.area-card:not(.dragging)')];
+
+                return draggableElements.reduce(
+                    (closest, child) => {
+                        const box = child.getBoundingClientRect();
+                        const offset = y - box.top - box.height / 2;
+
+                        if (offset < 0 && offset > closest.offset) {
+                            return { offset: offset, element: child };
+                        } else {
+                            return closest;
+                        }
+                    },
+                    { offset: Number.NEGATIVE_INFINITY }
+                ).element;
+            }
+
+            // Guardar el orden
+            saveBtn.addEventListener('click', function () {
+                const newOrder = [...container.querySelectorAll('.area-card')].map((card) => card.dataset.area);
+                localStorage.setItem('areasOrder', JSON.stringify(newOrder));
+                saveBtn.style.display = 'none';
+
+                const feedback = document.createElement('div');
+                feedback.className = 'alert alert-success position-fixed top-0 start-50 translate-middle-x mt-2';
+                feedback.textContent = 'Orden guardado correctamente';
+                document.body.appendChild(feedback);
+
+                setTimeout(() => {
+                    feedback.remove();
+                }, 2000);
+            });
+
+            // Lógica de búsqueda
+            searchInput.addEventListener('input', function () {
+                const searchTerm = searchInput.value.toLowerCase().trim();
+
+                if (searchTerm === '') {
+                    displayedAreas = [...areasData];
+                } else {
+                    displayedAreas = areasData
+                        .map((area) => {
+                            const filteredInternos = area.internos.filter(
+                                (interno) =>
+                                    interno.extension.toLowerCase().includes(searchTerm) ||
+                                    interno.nombre.toLowerCase().includes(searchTerm)
+                            );
+
+                            if (area.area.toLowerCase().includes(searchTerm) || filteredInternos.length > 0) {
+                                return {
+                                    ...area,
+                                    internos: filteredInternos,
+                                };
+                            }
+                            return null;
+                        })
+                        .filter(Boolean);
+                }
+
+                renderAreas();
+                setupDragAndDrop();
+            });
+
+            // Lógica para descargar PDF
+            downloadPdfBtn.addEventListener('click', function () {
+                const currentOrder = [...container.querySelectorAll('.area-card')].map((card) => card.dataset.area);
+
+                let dataForPdf = [...areasData];
+                dataForPdf.sort((a, b) => {
+                    return currentOrder.indexOf(a.area) - currentOrder.indexOf(b.area);
+                });
+
+                fetch('generar_pdf_test.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(dataForPdf),
+                })
+                    .then((response) => {
+                        if (response.ok) {
+                            return response.blob();
+                        }
+                        throw new Error('Error al generar el PDF');
+                    })
+                    .then((blob) => {
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = 'directorio.pdf';
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                    })
+                    .catch((error) => {
+                        alert(error.message);
+                    });
+            });
+        });
+    </script>
+</body>
+</html>
+    <h1>Directorio Telefónico</h1>
+    <div class="directorio" id="directorio">
+        <!-- Tarjetas se generarán dinámicamente -->
+    </div>
+
+    <button class="boton-descargar" id="descargarPdf">Descargar PDF</button>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const directorio = document.getElementById("directorio");
+
+            fetch("/extensiones")
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Error al obtener los datos");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    data.forEach(item => {
+                        const tarjeta = document.createElement("div");
+                        tarjeta.className = "tarjeta";
+
+                        const lineaSuperior = document.createElement("div");
+                        lineaSuperior.className = "linea-superior";
+
+                        const extension = document.createElement("div");
+                        extension.textContent = item.extension;
+
+                        const led = document.createElement("span");
+                        led.className = `estado-led ${item.estado === 'ocupado' ? 'estado-rojo' : 'estado-verde'}`;
+
+                        lineaSuperior.appendChild(extension);
+                        lineaSuperior.appendChild(led);
+
+                        const lineaInferior = document.createElement("div");
+                        lineaInferior.className = "linea-inferior";
+                        lineaInferior.textContent = item.nombre;
+
+                        tarjeta.appendChild(lineaSuperior);
+                        tarjeta.appendChild(lineaInferior);
+
+                        directorio.appendChild(tarjeta);
+                    });
+                })
+                .catch(error => {
+                    directorio.innerHTML = `<p>Error al cargar los datos: ${error.message}</p>`;
+                });
+
+            document.getElementById("descargarPdf").addEventListener("click", () => {
+                fetch("/generar-pdf")
+                    .then((response) => {
+                        if (!response.ok) {
+                            throw new Error("No se pudo generar el PDF");
+                        }
+                        return response.blob();
+                    })
+                    .then((blob) => {
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "directorio.pdf";
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                    })
+                    .catch((error) => {
+                        alert(error.message);
+                    });
+            });
+        });
+    </script>
+</body>
+</html>

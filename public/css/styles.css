@@ -1,0 +1,321 @@
+/* Reset y estilos base */
+html, body {
+    height: 100%;              /* Establece altura completa de la ventana */
+    margin: 0;                 /* Elimina márgenes por defecto del navegador */
+    padding: 0;                /* Elimina padding por defecto del navegador */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Define la fuente principal del sitio */
+    box-sizing: border-box;    /* Incluye padding y border en el cálculo del ancho/alto */
+}
+
+/* Contenedor principal */
+.container-fluid {
+    display: flex;             /* Activa flexbox para el layout */
+    flex-direction: column;    /* Organiza elementos en columna vertical */
+    height: 100vh;             /* Ocupa toda la altura de la ventana del navegador */
+    padding: 2px;              /* Espaciado interno reducido para maximizar espacio */
+    background-color: #f5f5f5; /* Color de fondo gris claro */
+}
+
+/* Header */
+.header-with-search {
+    display: flex;             /* Activa flexbox para organizar elementos del header */
+    align-items: center;       /* Centra verticalmente los elementos del header */
+    padding: 10px;             /* Espaciado interno reducido para compactar header */
+    background-color: #2c3e50; /* Color de fondo azul oscuro */
+    color: white;              /* Texto en color blanco */
+    border-bottom: 1px solid #dee2e6; /* Línea divisoria gris en la parte inferior */
+    box-shadow: 0 2px 4px rgba(0,0,0,.05); /* Sombra sutil debajo del header */
+    position: sticky;          /* Hace que el header se mantenga fijo al hacer scroll */
+    top: 0;                    /* Posiciona el header pegado al borde superior */
+    z-index: 1000;             /* Asegura que el header aparezca sobre otros elementos */
+    flex-shrink: 0;            /* Impide que el header se reduzca en tamaño */
+}
+
+.header-left {
+    flex-grow: 1;              /* Toma todo el espacio disponible del header */
+    text-align: center;        /* Centra horizontalmente el contenido */
+    display: flex;             /* Activa flexbox para organizar elementos internos */
+    align-items: center;       /* Centra verticalmente los elementos internos */
+}
+
+.header-left h1 {
+    margin: 0;                 /* Elimina márgenes por defecto del h1 */
+    font-size: 1.5rem;         /* Establece tamaño de fuente de 1.5rem */
+    color: white;              /* Color de texto blanco */
+}
+
+.header-right {
+    display: flex;             /* Activa flexbox para organizar elementos de la derecha */
+    gap: 10px;                 /* Espacio de 10px entre elementos */
+    align-items: center;       /* Centra verticalmente los elementos */
+    flex-shrink: 0;            /* Impide que esta sección se reduzca */
+}
+
+.search-container {
+    width: 250px;              /* Ancho fijo de 250px para el contenedor de búsqueda */
+}
+
+.header-logo {
+    height: 50px;              /* Altura fija de 50px para el logo */
+    margin-right: 15px;        /* Margen derecho de 15px */
+    vertical-align: middle;    /* Alineación vertical centrada */
+}
+
+/* Contenedor de áreas - Grid responsivo */
+.areas-container {
+    display: grid;             /* Activa CSS Grid para organizar las tarjetas */
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* Columnas responsivas con mínimo 300px reducido para mejor densidad */
+    gap: 10px;                 /* Espacio reducido entre tarjetas para mejor aprovechamiento */
+    padding: 5px;              /* Espaciado interno reducido */
+    flex-grow: 1;              /* Toma todo el espacio vertical disponible */
+    overflow-y: auto;          /* Permite scroll vertical cuando sea necesario */
+}
+
+/* Tarjeta de área */
+.area-card {
+    background-color: black;   /* Fondo negro para las tarjetas de área */
+    border-radius: 6px;        /* Esquinas redondeadas de 6px */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Sombra sutil para dar profundidad */
+    display: flex;             /* Activa flexbox para organizar contenido interno */
+    flex-direction: column;    /* Organiza elementos en columna */
+    height: 240px;             /* Altura fija aumentada para mejor visualización */
+    overflow: hidden;          /* Oculta contenido que se desborde */
+    margin: 2px;               /* Margen reducido añadido para separación mínima */
+}
+
+/* Estados especiales para drag and drop */
+.area-card.dragging {
+    opacity: 0.5;              /* Reduce opacidad al 50% cuando se arrastra un elemento */
+    transform: scale(1.02);    /* Aumenta ligeramente el tamaño (2%) durante el arrastre */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3); /* Añade sombra pronunciada para efecto de elevación */
+}
+
+.area-card.drag-over {
+    border: 2px dashed #3498db; /* Borde punteado azul cuando se arrastra algo sobre el área */
+}
+
+/* Áreas con pocas extensiones */
+.area-card.few-extensions {
+    height: auto;              /* Altura automática para áreas con pocas extensiones */
+}
+
+/* Encabezado de área */
+.area-header {
+    background-color: #3498db; /* Fondo azul para el encabezado */
+    color: white;              /* Texto blanco */
+    padding: 5px;              /* Espaciado interno de 5px */
+    font-size: 1rem;           /* Tamaño de fuente de 1rem */
+    font-weight: bold;         /* Texto en negrita */
+    flex-shrink: 0;            /* Impide que el encabezado se reduzca */
+}
+
+/* Grid de extensiones - Contenedor */
+.extension-grid-container {
+    flex-grow: 1;              /* Toma todo el espacio disponible */
+    overflow-y: auto;          /* Permite scroll vertical */
+    padding: 5px;              /* Espaciado interno reducido */
+}
+
+.extension-grid-container.scrollable {
+    max-height: 240px;         /* Altura máxima de 240px para contenedores con scroll */
+}
+
+.extension-grid {
+    display: grid;             /* Activa CSS Grid */
+    grid-template-columns: repeat(3, 1fr); /* 3 columnas de igual ancho */
+    gap: 6px;                  /* Espacio reducido entre elementos para mejor densidad */
+}
+
+/* Tarjeta de extensión */
+.extension-card {
+    background-color: #f8f9fa; /* Fondo gris muy claro */
+    border-radius: 4px;        /* Esquinas redondeadas de 4px */
+    padding: 8px;              /* Espaciado interno de 8px */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08); /* Sombra muy sutil */
+    min-height: 70px;          /* Altura mínima aumentada para mejor visualización */
+    display: flex;             /* Activa flexbox */
+    flex-direction: column;    /* Organiza contenido en columna */
+    justify-content: center;   /* Centra contenido verticalmente */
+    align-items: center;       /* Centra contenido horizontalmente */
+    transition: all 0.2s ease; /* Transición suave de 0.2s para todas las propiedades */
+    cursor: default;           /* Cursor normal (no de mano) */
+}
+
+.extension-card:hover {
+    background-color: #e9ecef; /* Fondo ligeramente más oscuro al pasar el mouse */
+    transform: translateY(-2px); /* Eleva la tarjeta 2px hacia arriba */
+}
+
+.extension-number-container {
+    display: flex;             /* Activa flexbox */
+    align-items: center;       /* Centra elementos verticalmente */
+    margin-bottom: 4px;        /* Margen inferior de 4px */
+}
+
+.extension-number {
+    font-weight: bold;         /* Texto en negrita */
+    font-size: 1rem;           /* Tamaño de fuente de 1rem */
+    color: #2c3e50;            /* Color azul oscuro */
+}
+
+.extension-name {
+    font-size: 0.8rem;         /* Tamaño de fuente de 0.8rem (más pequeño) */
+    color: #495057;            /* Color gris oscuro */
+    text-align: center;        /* Texto centrado */
+    word-break: break-word;    /* Permite partir palabras largas */
+    line-height: 1.3;          /* Altura de línea de 1.3 */
+    display: -webkit-box;      /* Activa el modo webkit-box para truncar texto */
+    -webkit-line-clamp: 2;     /* Limita a máximo 2 líneas */
+    -webkit-box-orient: vertical; /* Orientación vertical del box */
+    overflow: hidden;          /* Oculta texto que se desborde */
+}
+
+/* Estados LED - Iconos con efectos mejorados */
+.estado-icon {
+    margin-left: 8px;
+    font-size: 0.9em;
+    transition: all 0.3s ease;
+}
+
+.estado-verde {
+    color: #28a745;
+    text-shadow: 0 0 8px rgba(40, 167, 69, 0.5);
+}
+
+.estado-ocupado {
+    color: #ff0000;
+    animation: pulse 1.5s infinite;
+    text-shadow: 0 0 8px rgba(255, 0, 0, 0.5);
+}
+
+.estado-llamando {
+    color: #17a2b8;
+    animation: ring 0.5s infinite;
+    text-shadow: 0 0 8px rgba(23, 162, 184, 0.5);
+}
+
+.estado-desconocido {
+    color: #6c757d;
+    text-shadow: 0 0 5px rgba(108, 117, 125, 0.3);
+}
+/* Animaciones */
+@keyframes pulse {
+    0% { opacity: 1; transform: scale(1); } /* Estado inicial: opacidad completa, tamaño normal */
+    50% { opacity: 0.7; transform: scale(1.05); } /* Estado medio: semi-transparente, ligeramente más grande */
+    100% { opacity: 1; transform: scale(1); } /* Estado final: vuelve al estado inicial */
+}
+
+/* Nueva animación de ring para estado llamando */
+@keyframes ring {
+    0% { transform: rotate(0deg) scale(1); } /* Posición inicial sin rotación */
+    25% { transform: rotate(15deg) scale(1.1); } /* Rota 15 grados y agranda */
+    50% { transform: rotate(-15deg) scale(1.1); } /* Rota -15 grados y mantiene tamaño */
+
+
+/* Botón guardar layout */
+.save-layout-btn {
+    position: fixed;           /* Posición fija en la pantalla */
+    bottom: 20px;              /* 20px desde el borde inferior */
+    right: 20px;               /* 20px desde el borde derecho */
+    z-index: 100;              /* Aparece sobre otros elementos */
+    display: none;             /* Oculto por defecto */
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2); /* Sombra para dar profundidad */
+}
+
+.save-layout-btn:hover {
+    transform: translateY(-2px); /* Eleva el botón 2px al pasar el mouse */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25); /* Aumenta la sombra en hover */
+}
+
+
+
+
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+    width: 8px;                /* Ancho de 8px para la barra de scroll vertical */
+    height: 8px;               /* Alto de 8px para la barra de scroll horizontal */
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;       /* Fondo gris claro para el track de la scrollbar */
+    border-radius: 4px;        /* Esquinas redondeadas de 4px */
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;       /* Color gris para el thumb (parte que se arrastra) */
+    border-radius: 4px;        /* Esquinas redondeadas de 4px */
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;       /* Color más oscuro al pasar el mouse sobre el thumb */
+}
+
+/* Scrollbar específica para contenedor de extensiones */
+.extension-grid-container::-webkit-scrollbar {
+    width: 6px;                /* Scrollbar más delgada (6px) para el contenedor de extensiones */
+}
+
+.extension-grid-container::-webkit-scrollbar-track {
+    background: #f1f1f1;       /* Fondo gris claro para el track */
+    border-radius: 3px;        /* Esquinas redondeadas más pequeñas (3px) */
+}
+
+.extension-grid-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;       /* Color gris para el thumb */
+    border-radius: 3px;        /* Esquinas redondeadas más pequeñas (3px) */
+}
+
+.extension-grid-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;       /* Color más oscuro en hover */
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {    /* Estilos para pantallas de tablet y menores */
+    .header-with-search {
+        flex-direction: column; /* Cambia header a orientación vertical */
+        align-items: stretch;   /* Estira elementos para ocupar todo el ancho */
+        padding: 10px;          /* Reduce padding a 10px */
+    }
+
+    .header-left {
+        margin-bottom: 10px;    /* Añade margen inferior de 10px */
+        justify-content: center; /* Centra contenido horizontalmente */
+    }
+
+    .header-right {
+        flex-direction: column; /* Cambia elementos de la derecha a columna */
+        gap: 8px;               /* Reduce gap a 8px */
+    }
+
+    .search-container {
+        width: 100%;            /* Buscador ocupa todo el ancho disponible */
+    }
+
+    .areas-container {
+        grid-template-columns: 1fr; /* Una sola columna en dispositivos móviles */
+    }
+
+    .area-card {
+        height: auto;           /* Altura automática para las tarjetas */
+        max-height: 250px;      /* Altura máxima de 250px */
+    }
+
+    .extension-grid {
+        grid-template-columns: repeat(2, 1fr); /* Reduce a 2 columnas en tablet */
+    }
+}
+
+@media (max-width: 480px) {    /* Estilos para pantallas de móvil */
+    .extension-grid {
+        grid-template-columns: 1fr; /* Una sola columna en móviles */
+    }
+
+    .header-left h1 {
+        font-size: 1.2rem;      /* Reduce tamaño del título a 1.2rem */
+    }
+
+    .header-logo {
+        height: 40px;           /* Reduce altura del logo a 40px */
+    }
+}

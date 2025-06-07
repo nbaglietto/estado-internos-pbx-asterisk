@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Directorio Telefónico</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/styles.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="header-with-search">
+            <div class="header-left">
+                <img src="img/logo_espacio_memoria_2022_2.png" alt="Logo" class="header-logo" />
+                <h1>Directorio Telefónico</h1>
+            </div>
+
+            <div class="header-right">
+                <div class="search-container">
+                    <input
+                        type="text"
+                        id="searchInput"
+                        class="form-control"
+                        placeholder="Buscar extensión o área..."
+                    />
+                </div>
+                <button id="downloadPdfBtn" class="btn btn-info">
+                    <i class="fas fa-file-pdf"></i> Descargar PDF
+                </button>
+                <button id="pauseRefreshBtn" class="btn btn-warning btn-sm">
+                    <i class="fas fa-pause"></i> Pausar
+                </button>
+            </div>
+        </div>
+
+        <div class="areas-container" id="areas-container"></div>
+
+        <button id="saveLayoutBtn" class="btn btn-primary save-layout-btn">
+            <i class="fas fa-save"></i> Guardar Orden
+        </button>
+
+        <!-- Indicador de conexión -->
+        <div id="connectionStatus" class="connection-status">
+            <i class="fas fa-wifi"></i>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/estados.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const container = document.getElementById('areas-container');
+            const saveBtn = document.getElementById('saveLayoutBtn');
+            const searchInput = document.getElementById('searchInput');
+            const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+            const pauseRefreshBtn = document.getElementById('pauseRefreshBtn');
+            const connectionStatus = document.getElementById('connectionStatus');
+
+            let areasData = [];
+            let displayedAreas = [];
+            let draggedItem = null;
+            let refreshInterval = null;
+            let isRefreshPaused = false;
+            let isUserInteracting = false;
+            let lastUpdateTime = 0;
+            let consecutiveErrors = 0;
+
+            // Sistema de detección de interacción del usuario
+            function setupUserInteractionDetection() {
+                const interactionEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'focus'];
+
+                interactionEvents.forEach(event => {
+                    document.addEventListener(event, () => {
+                        isUserInteracting = true;
+                        clearTimeout(window.userInteractionTimeout);
+                        window.userInteractionTimeout = setTimeout(() => {
+                            isUserInteracting = false;
+                        }, 3000); // 3 segundos sin interacción
+                    });
+                });
+            }
+
+            // Función para actualizar el estado de conexión
+            function updateConnectionStatus(isConnected, hasError = false) {
+                const icon = connectionStatus.querySelector('i');
+                connectionStatus.className = 'connection-status';
+
+                if (hasError) {
+                    connectionStatus.classList.add('error');
+                    icon.className = 'fas fa-exclamation-triangle';
+                    connectionStatus.title = 'Error de conexión';
+                } else if (isConnected) {
+                    connectionStatus.classList.add('connected');
+                    icon.className = 'fas fa-wifi';
+                    connectionStatus.title = 'Conectado - Actualizando estados';
+                } else {
+                    connectionStatus.classList.add('disconnected');
+                    icon.className = 'fas fa-wifi';
+                    connectionStatus.title = 'Desconectado';
+                }
+            }
+
+/////////////////////////////// Función para actualizar solo el estado de una extensión específica
+function updateExtensionState(extension, newState) {
+    const extCard = document.querySelector(`[data-extension="${extension}"]`);
+    if (!extCard) return false;
+
+    const estadoIcon = extCard.querySelector('.estado-icon');
+    if (!estadoIcon) return false;
+
+    // Determinar el nuevo icono basado en el estado
+    let newIconHTML = '';
+    let newClass = 'estado-desconocido';
+    let newIcon = 'fa-question-circle';
+
+    if (newState) {
+        if (newState.includes('☎️ Disponible') || newState.includes('🟢')) {
+            newClass = 'estado-verde';
+            newIcon = 'fa-phone';
+            newState = '☎️ Disponible'; // Forzar texto consistente
+        } else if (newState.includes('📞') || newState.includes('Ocupada') || newState.includes('hablando')) {
+            newClass = 'estado-ocupado';
+            newIcon = 'fa-phone';
+            newState = '📞 Ocupado'; // Forzar texto consistente
+        } else if (newState.includes('🔔') || newState.includes('Llamando')) {
+            newClass = 'estado-llamando';
+            newIcon = 'fa-bell';
+            newState = '🔔 Llamando'; // Forzar texto consistente
+        }
+    }
+
+    // Para extensiones 611 y 645, forzar estado Disponible
+    if (extension === '611' || extension === '645') {
+        newClass = 'estado-verde';
+        newIcon = 'fa-phone';
+        newState = '☎️ Disponible';
+    }
+
+    newIconHTML = `<i class="fas ${newIcon} ${newClass}"></i>`;
+
+    // Solo actualizar si hay cambio
+    if (estadoIcon.innerHTML !== newIconHTML) {
+        estadoIcon.innerHTML = newIconHTML;
+
+        // Actualizar tooltip
+        const interno = findInternoByExtension(extension);
+        if (interno) {
+            extCard.title = `${interno.extension} - ${interno.nombre}\nEstado: ${newState || 'Desconocido'}`;
+        }
+
+        // Efecto visual de cambio
+        extCard.style.transition = 'all 0.3s ease';
+        extCard.style.transform = 'scale(1.02)';
+        setTimeout(() => {
+            extCard.style.transform = '';
+        }, 300);
+
+        return true; // Hubo cambio
+    }
+    return false; // No hubo cambio
+}
+
+/////////////////////////////////////fin
+            // Función auxiliar para encontrar un interno por extensión
+            function findInternoByExtension(extension) {
+                for (const area of areasData) {
+                    const interno = area.internos.find(int => int.extension === extension);
+                    if (interno) return interno;
+                }
+                return null;
+            }
+
+            // Función optimizada para actualizar solo estados
+            function updateOnlyStates() {
+                if (isUserInteracting && !isRefreshPaused) {
+                    console.log('Usuario interactuando, posponiendo actualización de estados...');
+                    return;
+                }
+
+                updateConnectionStatus(false); // Indicar que está cargando
+
+                fetch('internos.php?rand=' + Math.random())
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        return response.json();
+                    })
+                    .then(newData => {
+                        let changesCount = 0;
+
+                        // Comparar y actualizar solo los estados que cambiaron
+                        newData.forEach(newArea => {
+                            const currentArea = areasData.find(area => area.area === newArea.area);
+                            if (!currentArea) return;
+
+                            newArea.internos.forEach(newInterno => {
+                                const currentInterno = currentArea.internos.find(
+                                    int => int.extension === newInterno.extension
+                                );
+
+                                if (currentInterno && currentInterno.estado !== newInterno.estado) {
+                                    // Actualizar el estado en los datos
+                                    currentInterno.estado = newInterno.estado;
+
+                                    // Actualizar visualmente
+                                    if (updateExtensionState(newInterno.extension, newInterno.estado)) {
+                                        changesCount++;
+                                    }
+                                }
+                            });
+                        });
+
+                        // Actualizar datos globales
+                        areasData = newData;
+
+                        // Mostrar notificación de cambios si los hay
+                        if (changesCount > 0) {
+                            showChangeNotification(changesCount);
+                            console.log(`${changesCount} extensiones actualizadas`);
+                        }
+
+                        // Actualizar estado de conexión
+                        updateConnectionStatus(true);
+                        lastUpdateTime = Date.now();
+                        consecutiveErrors = 0;
+                    })
+                    .catch(error => {
+                        console.error('Error al actualizar estados:', error);
+                        consecutiveErrors++;
+                        updateConnectionStatus(false, true);
+
+                        // Si hay muchos errores consecutivos, aumentar el intervalo
+                        if (consecutiveErrors > 3) {
+                            console.log('Múltiples errores, reduciendo frecuencia de actualización');
+                        }
+                    });
+            }
+
+            // Función para mostrar notificación de cambios
+            function showChangeNotification(changesCount) {
+                // Remover notificación anterior si existe
+                const existingNotification = document.querySelector('.change-notification');
+                if (existingNotification) {
+                    existingNotification.remove();
+                }
+
+                const notification = document.createElement('div');
+                notification.className = 'change-notification position-fixed';
+                notification.style.cssText = `
+                    top: 80px;
+                    right: 20px;
+                    background: rgba(40, 167, 69, 0.95);
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    z-index: 1001;
+                    opacity: 0;
+                    transform: translateX(100%);
+                    transition: all 0.3s ease;
+                    font-size: 13px;
+                `;
+
+                notification.innerHTML = `
+                    <i class="fas fa-sync-alt me-2"></i>
+                    ${changesCount} extensión${changesCount > 1 ? 'es actualizadas' : ' actualizada'}
+                `;
+
+                document.body.appendChild(notification);
+
+                // Animar entrada
+                setTimeout(() => {
+                    notification.style.opacity = '1';
+                    notification.style.transform = 'translateX(0)';
+                }, 10);
+
+                // Remover después de 2.5 segundos
+                setTimeout(() => {
+                    notification.style.opacity = '0';
+                    notification.style.transform = 'translateX(100%)';
+                    setTimeout(() => notification.remove(), 300);
+                }, 2500);
+            }
+
+            // Función para iniciar actualización automática optimizada
+            function startOptimizedAutoRefresh() {
+                const NORMAL_INTERVAL = 5000; // 5 segundos
+                const SLOW_INTERVAL = 15000;  // 15 segundos cuando hay errores
+
+                function scheduleNextUpdate() {
+                    if (isRefreshPaused) return;
+
+                    const interval = consecutiveErrors > 3 ? SLOW_INTERVAL : NORMAL_INTERVAL;
+                    refreshInterval = setTimeout(() => {
+                        updateOnlyStates();
+                        scheduleNextUpdate();
+                    }, interval);
+                }
+
+                // Iniciar el ciclo
+                scheduleNextUpdate();
+            }
+
+            // Función para pausar/reanudar actualizaciones
+            function toggleAutoRefresh() {
+                isRefreshPaused = !isRefreshPaused;
+
+                if (isRefreshPaused) {
+                    if (refreshInterval) {
+                        clearTimeout(refreshInterval);
+                        refreshInterval = null;
+                    }
+                    pauseRefreshBtn.innerHTML = '<i class="fas fa-play"></i> Reanudar';
+                    pauseRefreshBtn.className = 'btn btn-success btn-sm';
+                    updateConnectionStatus(false);
+                } else {
+                    pauseRefreshBtn.innerHTML = '<i class="fas fa-pause"></i> Pausar';
+                    pauseRefreshBtn.className = 'btn btn-warning btn-sm';
+                    startOptimizedAutoRefresh();
+                }
+            }
+
+            // Cargar datos iniciales
+            fetch('internos.php')
+                .then((response) => response.json())
+                .then((data) => {
+                    areasData = data;
+                    const savedOrder = localStorage.getItem('areasOrder');
+
+                    if (savedOrder) {
+                        const orderArray = JSON.parse(savedOrder);
+                        areasData.sort((a, b) => {
+                            return orderArray.indexOf(a.area) - orderArray.indexOf(b.area);
+                        });
+                    } else {
+                        areasData.sort((a, b) => {
+                            const groupA = a.internos.length > 3 ? 0 : 1;
+                            const groupB = b.internos.length > 3 ? 0 : 1;
+                            if (groupA !== groupB) {
+                                return groupA - groupB;
+                            } else {
+                                return b.internos.length - a.internos.length;
+                            }
+                        });
+                    }
+
+                    displayedAreas = [...areasData];
+                    renderAreas();
+                    setupDragAndDrop();
+                    setupUserInteractionDetection();
+                    startOptimizedAutoRefresh();
+                })
+                .catch(error => {
+                    console.error('Error al cargar datos iniciales:', error);
+                    updateConnectionStatus(false, true);
+                });
+//////////////////////////// Renderizar áreas (modificado para incluir data-extension)
+function renderAreas() {
+    container.innerHTML = '';
+    displayedAreas.forEach((area) => {
+        const areaCard = document.createElement('div');
+        areaCard.className = 'area-card';
+        areaCard.draggable = true;
+        areaCard.dataset.area = area.area;
+        const header = document.createElement('div');
+        header.className = 'area-header';
+        header.innerHTML = `
+            ${area.area}
+            <span class="float-end"><i class="fas fa-arrows-alt"></i></span>
+        `;
+        const gridContainer = document.createElement('div');
+        gridContainer.className = 'extension-grid-container';
+        if (area.internos.length > 6) {
+            gridContainer.style.overflowY = 'auto';
+        } else {
+            gridContainer.style.overflowY = 'visible';
+        }
+        const grid = document.createElement('div');
+        grid.className = 'extension-grid';
+        area.internos.forEach((interno) => {
+            const extCard = document.createElement('div');
+            extCard.className = 'extension-card';
+            extCard.dataset.extension = interno.extension; // ¡Importante para las actualizaciones!
+            extCard.title = `${interno.extension} - ${interno.nombre}\nEstado: ${interno.estado || 'Desconocido'}`;
+            let estadoIcon = '';
+            if (interno.estado) {
+                // Usar directamente los campos estado_icono y estado_clase del objeto interno
+                if (interno.estado_icono && interno.estado_clase) {
+                    estadoIcon = `<i class="fas ${interno.estado_icono} ${interno.estado_clase}"></i>`;
+                } else {
+                    // Fallback al método anterior si no existen los nuevos campos
+                    if (interno.estado.includes(' ')) {
+                        estadoIcon = '<i class="fas fa-circle estado-verde"></i>';
+                    } else if (interno.estado.includes('🔴') || interno.estado.includes('No registrada')) {
+                        estadoIcon = '<i class="fas fa-circle estado-rojo"></i>';
+                    } else if (interno.estado.includes('📞') || interno.estado.includes('Ocupada') || interno.estado.includes('hablando')) {
+                        estadoIcon = '<i class="fas fa-phone estado-ocupado"></i>';
+                    } else if (interno.estado.includes('🔔') || interno.estado.includes('Llamando')) {
+                        estadoIcon = '<i class="fas fa-bell estado-llamando"></i>';
+                    } else {
+                        estadoIcon = '<i class="fas fa-question-circle estado-desconocido"></i>';
+                    }
+                }
+            } else {
+                estadoIcon = '<i class="fas fa-question-circle estado-desconocido"></i>';
+            }
+            extCard.innerHTML = `
+                <div class="extension-number-container">
+                    <span class="extension-number">${interno.extension}</span>
+                    <span class="estado-icon">${estadoIcon}</span>
+                </div>
+                <div class="extension-name">${interno.nombre}</div>
+            `;
+            grid.appendChild(extCard);
+        });
+        gridContainer.appendChild(grid);
+        areaCard.appendChild(header);
+        areaCard.appendChild(gridContainer);
+        container.appendChild(areaCard);
+    });
+}  
+
+///////////////////////////////////FIN RENDERAREA /////////////////////////////////
+
+            // Event Listeners
+            pauseRefreshBtn.addEventListener('click', toggleAutoRefresh);
+
+            // [Resto del código permanece igual - drag and drop, búsqueda, PDF, etc.]
+
+            // Configurar drag and drop
+            function setupDragAndDrop() {
+                const areaCards = document.querySelectorAll('.area-card');
+
+                areaCards.forEach(card => {
+                    card.addEventListener('dragstart', handleDragStart);
+                    card.addEventListener('dragend', handleDragEnd);
+                });
+
+                container.addEventListener('dragover', handleDragOver);
+                container.addEventListener('dragenter', handleDragEnter);
+                container.addEventListener('dragleave', handleDragLeave);
+                container.addEventListener('drop', handleDrop);
+            }
+
+            function handleDragStart(e) {
+                draggedItem = this;
+                setTimeout(() => {
+                    this.classList.add('dragging');
+                }, 0);
+
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/html', this.innerHTML);
+            }
+
+            function handleDragEnd() {
+                this.classList.remove('dragging');
+                saveBtn.style.display = 'block';
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+
+                const afterElement = getDragAfterElement(container, e.clientY);
+                if (afterElement == null) {
+                    container.appendChild(draggedItem);
+                } else {
+                    container.insertBefore(draggedItem, afterElement);
+                }
+            }
+
+            function handleDragEnter(e) {
+                e.preventDefault();
+                if (this !== draggedItem) {
+                    this.classList.add('drag-over');
+                }
+            }
+
+            function handleDragLeave() {
+                this.classList.remove('drag-over');
+            }
+
+            function handleDrop(e) {
+                e.preventDefault();
+                this.classList.remove('drag-over');
+            }
+
+            function getDragAfterElement(container, y) {
+                const draggableElements = [...container.querySelectorAll('.area-card:not(.dragging)')];
+
+                return draggableElements.reduce((closest, child) => {
+                    const box = child.getBoundingClientRect();
+                    const offset = y - box.top - box.height / 2;
+
+                    if (offset < 0 && offset > closest.offset) {
+                        return { offset: offset, element: child };
+                    } else {
+                        return closest;
+                    }
+                }, { offset: Number.NEGATIVE_INFINITY }).element;
+            }
+
+            // Guardar el orden
+            saveBtn.addEventListener('click', function() {
+                const newOrder = [...container.querySelectorAll('.area-card')].map(card => card.dataset.area);
+                localStorage.setItem('areasOrder', JSON.stringify(newOrder));
+                saveBtn.style.display = 'none';
+
+                const feedback = document.createElement('div');
+                feedback.className = 'alert alert-success position-fixed top-0 start-50 translate-middle-x mt-2';
+                feedback.textContent = 'Orden guardado correctamente';
+                document.body.appendChild(feedback);
+
+                setTimeout(() => {
+                    feedback.remove();
+                }, 2000);
+            });
+
+            // Lógica de búsqueda
+            searchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase().trim();
+
+                if (searchTerm === '') {
+                    displayedAreas = [...areasData];
+                } else {
+                    displayedAreas = areasData.map(area => {
+                        const filteredInternos = area.internos.filter(interno =>
+                            interno.extension.toLowerCase().includes(searchTerm) ||
+                            interno.nombre.toLowerCase().includes(searchTerm)
+                        );
+
+                        if (area.area.toLowerCase().includes(searchTerm) || filteredInternos.length > 0) {
+                            return {
+                                ...area,
+                                internos: filteredInternos
+                            };
+                        }
+                        return null;
+                    }).filter(Boolean);
+                }
+
+                renderAreas();
+                setupDragAndDrop();
+            });
+
+            // Lógica para descargar PDF
+            downloadPdfBtn.addEventListener('click', function() {
+                const currentOrder = [...container.querySelectorAll('.area-card')].map(card => card.dataset.area);
+
+                let dataForPdf = [...areasData];
+                dataForPdf.sort((a, b) => {
+                    return currentOrder.indexOf(a.area) - currentOrder.indexOf(b.area);
+                });
+
+                fetch('generar_pdf_test.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(dataForPdf),
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.blob();
+                    }
+                    throw new Error('Error al generar el PDF');
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'directorio.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(error => {
+                    alert(error.message);
+                });
+            });
+
+            // Limpiar al cerrar la página
+            window.addEventListener('beforeunload', () => {
+                if (refreshInterval) {
+                    clearTimeout(refreshInterval);
+                }
+            });
+        });
+    </script>
+
+    <style>
+        /* Estilos adicionales para el indicador de conexión */
+        .connection-status {
+            position: fixed;
+            top: 15px;
+            right: 15px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            z-index: 1002;
+            transition: all 0.3s ease;
+        }
+
+        .connection-status.connected {
+            background-color: #28a745;
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+        }
+
+        .connection-status.disconnected {
+            background-color: #6c757d;
+        }
+
+        .connection-status.error {
+            background-color: #dc3545;
+            animation: pulse-error 1s infinite;
+        }
+
+        .connection-status i {
+            font-size: 8px;
+            color: white;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        @keyframes pulse-error {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</body>
+</html>
